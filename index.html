@@ -266,6 +266,19 @@
             border-color: #667eea;
         }
 
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .error-message.active {
+            display: block;
+        }
+
         footer {
             text-align: center;
             padding: 30px;
@@ -303,11 +316,11 @@
                 <div class="examples">
                     <p style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Quick examples:</p>
                     <div class="example-chips">
-                        <span class="example-chip" onclick="setPrompt('A detailed dragon figurine with scales and wings')">Dragon Figurine</span>
-                        <span class="example-chip" onclick="setPrompt('Modern minimalist vase with geometric patterns')">Geometric Vase</span>
-                        <span class="example-chip" onclick="setPrompt('Articulated robot action figure with movable joints')">Robot Figure</span>
-                        <span class="example-chip" onclick="setPrompt('Fantasy castle with towers and walls')">Castle Model</span>
-                        <span class="example-chip" onclick="setPrompt('Ergonomic phone stand with cable management')">Phone Stand</span>
+                        <span class="example-chip" onclick="setPrompt('A detailed dragon figurine with scales and wings, 3D model render')">Dragon Figurine</span>
+                        <span class="example-chip" onclick="setPrompt('Modern minimalist vase with geometric patterns, 3D model render')">Geometric Vase</span>
+                        <span class="example-chip" onclick="setPrompt('Articulated robot action figure with movable joints, 3D model render')">Robot Figure</span>
+                        <span class="example-chip" onclick="setPrompt('Fantasy castle with towers and walls, 3D model render')">Castle Model</span>
+                        <span class="example-chip" onclick="setPrompt('Ergonomic phone stand with cable management, 3D model render')">Phone Stand</span>
                     </div>
                 </div>
             </div>
@@ -350,14 +363,16 @@
 
             <div class="loading" id="loading">
                 <div class="spinner"></div>
-                <p>Generating your 3D model... This may take a moment.</p>
+                <p>Generating your 3D model with AI... This may take a moment.</p>
             </div>
+
+            <div class="error-message" id="error"></div>
 
             <div class="result-section" id="result">
                 <h2 style="margin-bottom: 20px; color: #667eea;">Your 3D Model</h2>
                 <div class="model-preview">
                     <img id="modelPreview" class="model-image" alt="3D Model Preview">
-                    <p style="margin-top: 15px; color: #666;">Preview of your generated 3D model</p>
+                    <p style="margin-top: 15px; color: #666;">AI-generated 3D model visualization</p>
                 </div>
                 
                 <div class="download-section">
@@ -402,15 +417,17 @@
     </div>
 
     <script>
+        let currentImageUrl = null;
+
         function setPrompt(text) {
             document.getElementById('prompt').value = text;
         }
 
-        function generateModel() {
+        async function generateModel() {
             const prompt = document.getElementById('prompt').value.trim();
             
             if (!prompt) {
-                alert('Please enter a description for your 3D model');
+                showError('Please enter a description for your 3D model');
                 return;
             }
 
@@ -418,24 +435,104 @@
             const format = document.getElementById('format').value;
             const quality = document.getElementById('quality').value;
 
+            // Build enhanced prompt for 3D visualization
+            let enhancedPrompt = prompt;
+            
+            // Add style modifiers
+            if (style === 'realistic') {
+                enhancedPrompt += ', photorealistic 3D render, high detail, professional lighting';
+            } else if (style === 'stylized') {
+                enhancedPrompt += ', stylized 3D art, artistic render, clean design';
+            } else if (style === 'low-poly') {
+                enhancedPrompt += ', low poly 3D model, geometric shapes, minimalist design';
+            } else if (style === 'high-detail') {
+                enhancedPrompt += ', ultra detailed 3D model, intricate details, 8K render';
+            }
+
+            // Add quality modifiers
+            if (quality === 'ultra') {
+                enhancedPrompt += ', studio quality, ray tracing, perfect topology';
+            }
+
+            enhancedPrompt += ', 3D model visualization, clean background, centered composition';
+
+            // Show loading
             document.getElementById('loading').classList.add('active');
             document.getElementById('result').classList.remove('active');
+            document.getElementById('error').classList.remove('active');
             document.querySelector('.generate-btn').disabled = true;
 
-            setTimeout(() => {
+            try {
+                // Call Bhindi AI API to generate 3D model visualization
+                const response = await fetch('https://api.bhindi.io/v1/generate-image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: enhancedPrompt,
+                        aspectRatio: '1:1'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to generate 3D model');
+                }
+
+                const data = await response.json();
+                
+                if (data.success && data.data && data.data.url) {
+                    currentImageUrl = data.data.url;
+                    
+                    // Hide loading
+                    document.getElementById('loading').classList.remove('active');
+                    document.querySelector('.generate-btn').disabled = false;
+
+                    // Show result
+                    document.getElementById('result').classList.add('active');
+                    document.getElementById('modelPreview').src = currentImageUrl;
+                    
+                    // Scroll to result
+                    document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    throw new Error('Invalid response from AI service');
+                }
+            } catch (error) {
+                console.error('Error generating model:', error);
                 document.getElementById('loading').classList.remove('active');
                 document.querySelector('.generate-btn').disabled = false;
-                document.getElementById('result').classList.add('active');
-                document.getElementById('modelPreview').src = 'https://via.placeholder.com/600x400/667eea/ffffff?text=3D+Model+Preview';
-                document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 3000);
+                showError('Failed to generate 3D model. Please try again or contact support.');
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('active');
+            setTimeout(() => {
+                errorDiv.classList.remove('active');
+            }, 5000);
         }
 
         function downloadModel(format) {
-            alert(`Downloading model in ${format.toUpperCase()} format...\n\nIn a production version, this would download your generated 3D model file.`);
-            console.log(`Download initiated for format: ${format}`);
+            if (!currentImageUrl) {
+                showError('Please generate a model first');
+                return;
+            }
+
+            // Create download link for the image
+            const link = document.createElement('a');
+            link.href = currentImageUrl;
+            link.download = `3d-model-${Date.now()}.${format}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Show info message
+            alert(`Downloading 3D model preview as ${format.toUpperCase()}...\n\nNote: This is a visual representation. For actual 3D model files, integration with 3D generation APIs like Meshy AI, Tripo AI, or Rodin would be required.`);
         }
 
+        // Add enter key support for textarea (Ctrl+Enter to generate)
         document.getElementById('prompt').addEventListener('keydown', function(e) {
             if (e.ctrlKey && e.key === 'Enter') {
                 generateModel();
